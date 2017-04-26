@@ -883,6 +883,7 @@ class IsIn(ElemWise):
     dshape("10 * bool")
     """
     _arguments = '_child', '_keys'
+    _input_attributes = '_child', '_keys'
 
     def _schema(self):
         return datashape.bool_
@@ -894,11 +895,9 @@ class IsIn(ElemWise):
 
 @copydoc(IsIn)
 def isin(expr, keys):
-    if isinstance(keys, Expr):
-        raise TypeError('keys argument cannot be an expression, '
-                        'it must be an iterable object such as a list, '
-                        'tuple or set')
-    return IsIn(expr, frozenset(keys))
+    if not isinstance(keys, Expr):
+        keys = data(frozenset(keys))
+    return IsIn(expr, keys)
 
 
 class Shift(Expr):

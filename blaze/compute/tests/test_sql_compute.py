@@ -30,6 +30,7 @@ from blaze.expr import (
     exp,
     floor,
     greatest,
+    isin,
     join,
     least,
     mean,
@@ -1672,9 +1673,9 @@ def test_transform_order():
     assert normalize(str(result)) == normalize(expected)
 
 
-def test_isin():
+def test_isin_literal():
     result = t[t.name.isin(['foo', 'bar'])]
-    result_sql_expr = str(compute(result, s, return_type='native'))
+    result_sql_expr = str(compute(result, {t: s}, return_type='native'))
     expected = """
         SELECT
             accounts.name,
@@ -1687,6 +1688,37 @@ def test_isin():
         IN
             (:name_1,
             :name_2)
+    """
+    assert normalize(result_sql_expr) == normalize(expected)
+
+
+def test_isin_expression():
+    metadata = sa.MetaData()
+    lhs = sa.Table('accounts', metadata,
+                   sa.Column('name', sa.String),
+                   sa.Column('amount', sa.Integer))
+
+    rhs = sa.Table('ids', metadata,
+                   sa.Column('name', sa.String),
+                   sa.Column('id', sa.Integer))
+
+    L = symbol('L', 'var * {name: string, amount: int}')
+    R = symbol('R', 'var * {name: string, id: int}')
+    want = L[L.name.isin(R.name)]
+
+    result = compute(want, {L: lhs, R: rhs}, return_type='native')
+    result_sql_expr = str(result)
+    expected = """
+        SELECT
+            accounts.name,
+            accounts.amount
+        FROM
+            accounts
+        WHERE
+            accounts.name
+        IN
+            (SELECT ids.name
+             FROM ids)
     """
     assert normalize(result_sql_expr) == normalize(expected)
 
@@ -1799,7 +1831,7 @@ def test_do_not_erase_group_by_functions_with_datetime():
 
 def test_not():
     expr = t.amount[~t.name.isin(('Billy', 'Bob'))]
-    result = str(compute(expr, s, return_type='native'))
+    result = str(compute(expr, {t: s}, return_type='native'))
     expected = """SELECT
         accounts.amount
     FROM
