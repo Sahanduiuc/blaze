@@ -24,6 +24,7 @@ from werkzeug.http import parse_options_header
 from toolz import valmap, compose
 
 import blaze
+import blaze as bz
 from blaze import compute, resource
 from blaze.compatibility import ExitStack, u8
 from blaze.compute import compute_up
@@ -457,7 +458,7 @@ def to_tree(expr, names=None):
         return [to_tree(arg, names=names) for arg in expr]
     if isinstance(expr, expr_utils._slice):
         return to_tree(expr.as_slice(), names=names)
-    elif isinstance(expr, Literal):
+    elif isinstance(expr, Literal) and isinstance(expr.data, bz.Client):
         return to_tree(symbol(u8(expr._name), expr.dshape), names)
     elif isinstance(expr, Expr):
         return {u'op': u8(type(expr).__name__),
