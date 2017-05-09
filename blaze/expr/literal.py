@@ -84,7 +84,7 @@ class Literal(Symbol):
     """
     _arguments = 'data', 'dshape', '_name'
 
-    def __new__(cls, data, dshape, name=None):
+    def __new__(cls, data, dshape, name=None, _repr=False):
         return super(Symbol, cls).__new__(
             cls,
             data,
@@ -112,6 +112,14 @@ class Literal(Symbol):
             return repr(self.data)
 
 
+class _Data(Literal):
+    def __repr__(self):
+        fmt = "<'{}' data; _name='{}', dshape='{}'>"
+        return fmt.format(type(self.data).__name__,
+                          self._name,
+                          sanitized_dshape(self.dshape))
+
+
 @copydoc(Literal)
 def literal(data_source,
             dshape=None,
@@ -131,13 +139,6 @@ def literal(data_source,
         dshape = var * schema
     if dshape and isinstance(dshape, _strtypes):
         dshape = datashape.dshape(dshape)
-
-    if name is generate:
-        if not isscalar(dshape):
-            fmt = "<'{}' data; _name='{}', dshape='{}'>"
-            name = fmt.format(type(data_source).__name__,
-                              next(_names),
-                              sanitized_dshape(dshape))
 
     if isinstance(data_source, _strtypes):
         data_source = resource(data_source, schema=schema, dshape=dshape,
@@ -175,6 +176,12 @@ def literal(data_source,
             dshape = DataShape(*(dshape.shape + (schema,)))
 
     ds = datashape.dshape(dshape)
+
+    if name is generate:
+        if not isscalar(dshape):
+            name = next(_names)
+            return _Data(data_source, ds, name)
+
     return Literal(data_source, ds, name)
 
 
