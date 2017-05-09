@@ -150,7 +150,7 @@ def test_summary_on_series():
 @pytest.mark.parametrize('keys', [[1], [2, 3]])
 def test_isin(keys):
     expr = t[t.id.isin(keys)]
-    result = compute(expr, ddf)
+    result = compute(expr, {t: ddf})
     expected = df.loc[df.id.isin(keys)]
     eq(result, expected)
 

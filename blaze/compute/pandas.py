@@ -16,6 +16,7 @@ Name: name, dtype: object
 """
 from __future__ import absolute_import, division, print_function
 
+from collections import Iterable
 from datetime import timedelta
 import fnmatch
 import itertools
@@ -841,9 +842,9 @@ def compute_up(expr, data, **kwargs):
                   name=expr._name)
 
 
-@dispatch(IsIn, (Series, DaskSeries))
-def compute_up(expr, data, **kwargs):
-    return data.isin(expr._keys)
+@dispatch(IsIn, (Series, DaskSeries), Iterable)
+def compute_up(expr, data, keys, **kwargs):
+    return data.isin(keys)
 
 
 @dispatch(Coerce, (Series, DaskSeries))

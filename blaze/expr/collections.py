@@ -895,8 +895,7 @@ class IsIn(ElemWise):
 
     def __str__(self):
         return '%s.%s(%s)' % (self._child, type(self).__name__.lower(),
-                              self._keys)
-
+                              repr(self._keys))
 
 @copydoc(IsIn)
 def isin(expr, keys):
