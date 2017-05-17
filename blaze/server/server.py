@@ -566,6 +566,21 @@ accepted_mimetypes = {'application/vnd.blaze+{}'.format(x.name): x.name for x
                       in all_formats}
 
 
+def _log_expr_info(path, payload, success, start, end, exception=None):
+    from .serialization import fastmsgpack as fastmsgpack_format
+    info = {
+        'expr': payload[u'expr'],
+        'success': success,
+        'start': start,
+        'end': end,
+    }
+    if exception is not None:
+        info['exception'] = exception
+    with open(path, 'wb') as f:
+        out = fastmsgpack_format.dumps(info)
+        f.write(out)
+
+
 @api.route('/compute', methods=['POST', 'HEAD', 'OPTIONS'])
 @cross_origin(origins='*', methods=['POST', 'HEAD', 'OPTIONS'])
 @authorization
@@ -614,6 +629,8 @@ def compserver(payload, serial):
 
         expr = '<failed to parse expr>'
 
+        info_path = _prof_path(default_profiler_output, expr)
+
         @response_construction_context_stack.callback
         def log_time(start=time()):
             app.logger.info('compute expr: %s\ntotal time (s): %.3f',
@@ -637,11 +654,13 @@ def compserver(payload, serial):
         formatter = getattr(flask.current_app, 'log_exception_formatter',
                             _default_log_exception_formatter)
         try:
+            start = time()
             result = serial.materialize(compute(expr,
                                                 {leaf: dataset},
                                                 **compute_kwargs),
                                         expr.dshape,
                                         odo_kwargs)
+            end = time()
         except NotImplementedError as e:
             # Note: `sys.exc_info()[2]` holds the current traceback, for
             # Python 2 / 3 compatibility. It's important not to store a local
@@ -649,16 +668,19 @@ def compserver(payload, serial):
             formatted_tb = formatter(sys.exc_info()[2])
             error_msg = "Computation not supported:\n%s\n%s" % (e, formatted_tb)
             app.logger.error(error_msg)
+            _log_expr_info(info_path, payload, False, start, end, error_msg)
             return (error_msg, RC.NOT_IMPLEMENTED)
         except Exception as e:
             formatted_tb = formatter(sys.exc_info()[2])
             error_msg = "Computation failed with message:\n%s: %s\n%s" % (type(e).__name__, e, formatted_tb)
             app.logger.error(error_msg)
+            _log_expr_info(info_path, payload, False, start, end, error_msg)
             return (error_msg, RC.INTERNAL_SERVER_ERROR)
 
         response = {u'datashape': pprint(expr.dshape, width=0),
                     u'data': serial.data_dumps(result),
                     u'names': expr.fields}
+        _log_expr_info(info_path, payload, True, start, end)
 
     if profiling:
         import marshal
